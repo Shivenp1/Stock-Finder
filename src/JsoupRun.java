@@ -4,8 +4,12 @@ import org.jsoup.nodes.Element;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Scanner;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class JsoupRun {
 
@@ -16,6 +20,10 @@ public class JsoupRun {
     private static List<Double> stockPEs = new ArrayList<>();
     private static List<Double> stockDividends = new ArrayList<>();
     private static List<Double> stockChangeWeekly = new ArrayList<>();
+    private static List<Double> stockChangeMonthly = new ArrayList<>();
+    private static List<Double> stockChangeYearly = new ArrayList<>();
+    private static List<Double> stockVolatility = new ArrayList<>();
+    
 
     public static List<String> findStocks(String preference, double threshold) {
         List<String> selectedStocks = new ArrayList<>();
@@ -28,6 +36,49 @@ public class JsoupRun {
                     }
                 }
                 break;
+                
+            case "biggest movers":
+                // Create a list of indices sorted based on the change percentage in descending order
+                List<Integer> sortedIndices = IntStream.range(0, stockNames.size())
+                        .boxed()
+                        .sorted(Comparator.comparingDouble(i -> -stockChanges.get(i)))
+                        .collect(Collectors.toList());
+
+                int topN = Math.min(5, stockNames.size());
+                for (int i = 0; i < topN; i++) {
+                    selectedStocks.add(stockNames.get(sortedIndices.get(i)) + " - Change: " + stockChanges.get(sortedIndices.get(i)) + "%");
+                }
+                break;
+                
+            case "highest volume":
+                // Create a list of indices sorted based on relative volume in descending order
+                List<Integer> volumeSortedIndices = IntStream.range(0, stockNames.size())
+                        .boxed()
+                        .sorted(Comparator.comparingDouble(i -> -stockRelativeVolumes.get(i)))
+                        .collect(Collectors.toList());
+
+                // Display the top 10 stocks with the highest relative volume
+                int topNVolume = Math.min(5, stockNames.size());
+                for (int i = 0; i < topNVolume; i++) {
+                    selectedStocks.add(stockNames.get(volumeSortedIndices.get(i)) + " - Relative Volume: " + stockRelativeVolumes.get(volumeSortedIndices.get(i)));
+                }
+                break;
+                
+            case "highest dividend":
+                List<Integer> dividendSortedIndices = IntStream.range(0, stockNames.size())
+                        .boxed()
+                        .sorted(Comparator.comparingDouble(i -> -stockDividends.get(i)))
+                        .collect(Collectors.toList());
+
+                // Display the top 5 stocks with the highest dividend
+                int topNDividend = Math.min(5, stockNames.size());
+                for (int i = 0; i < topNDividend; i++) {
+                    selectedStocks.add(stockNames.get(dividendSortedIndices.get(i)) + " - Dividend: " + stockDividends.get(dividendSortedIndices.get(i)) + "%");
+                }
+                break;
+
+
+            	
 
             default:
                 System.out.println("Invalid preference");
@@ -37,20 +88,51 @@ public class JsoupRun {
     }
 
     public static void main(String[] args) {
-        fetchDataAndStore();
+    	 fetchDataAndStore();
 
-        Scanner scanner = new Scanner(System.in);
+    	    Scanner scanner = new Scanner(System.in);
 
-        System.out.println("What type of stock do you want to invest in? (e.g., safe)");
-        String preference = scanner.nextLine();
+    	    // Define menu options
+    	    List<String> menuOptions = Arrays.asList("Safe Stocks", "Biggest Movers", "Highest Volume", "Highest Dividend");
 
-        double threshold = 20;
+    	    // Display menu to the user
+    	    System.out.println("Select the type of stock you want to invest in:");
+    	    for (int i = 0; i < menuOptions.size(); i++) {
+    	        System.out.println((i + 1) + ". " + menuOptions.get(i));
+    	    }
 
-        List<String> selectedStocks = findStocks(preference, threshold);
+    	    // Prompt the user to choose an option
+    	    System.out.print("Enter the number of your choice: ");
+    	    int choice = scanner.nextInt();
 
-        System.out.println("Stocks matching your criteria:");
-        for (String stock : selectedStocks) {
-            System.out.println(stock);
+
+    	    // Process the user's choice
+    	    String preference;
+    	    switch (choice) {
+    	        case 1:
+    	            preference = "safe";
+    	            break;
+    	        case 2:
+    	            preference = "biggest movers";
+    	            break;
+    	        case 3:
+    	            preference = "highest volume";
+    	            break;
+    	        case 4:
+    	            preference = "Highest Dividend";
+    	            break;
+    	        default:
+    	            System.out.println("Invalid choice. Exiting.");
+    	            return;
+    	    }
+
+    	    double threshold = 20;
+
+    	    List<String> selectedStocks = findStocks(preference, threshold);
+
+    	    System.out.println("Stocks matching your criteria:");
+    	    for (String stock : selectedStocks) {
+    	        System.out.println(stock);
         }
     }
 
@@ -107,6 +189,30 @@ public class JsoupRun {
                     final double Weeklychange = Double.parseDouble(standardizedChange);
                     
                     stockChangeWeekly.add(Weeklychange);
+                    
+                    final String tempChangeMonthly = row.select("td.right-RLhfr_y4.cell-RLhfr_y4:nth-of-type(5)").text();
+                    final String tempChangeMonthly2 = tempChangeMonthly.replace("%", "");
+                    final String tempChangeMonthly3 = tempChangeMonthly2.replaceAll("[^\\d.-]", "");
+                    final String standardizedChange1 = tempChangeMonthly3.startsWith("+") ? tempChangeMonthly3.substring(1) : tempChangeMonthly3;
+                    final double MonthlyChange = Double.parseDouble(standardizedChange1);
+                    
+                    stockChangeMonthly.add(MonthlyChange);
+                    
+                    final String tempChangeyearly = row.select("td.right-RLhfr_y4.cell-RLhfr_y4:nth-of-type(9)").text();
+                    final String tempChangeyearly2 = tempChangeyearly.replace("%", "");
+                    final String tempChangeyearly3 = tempChangeyearly2.replaceAll("[^\\d.-]", "");
+                    final String standardizedChange2 = tempChangeyearly3.startsWith("+") ? tempChangeyearly3.substring(1) : tempChangeyearly3;
+                    final double YearlyChange = Double.parseDouble(standardizedChange2);
+                    
+                    stockChangeYearly.add(YearlyChange);
+                    
+                    final String tempVolatility = row.select("td.right-RLhfr_y4.cell-RLhfr_y4:nth-of-type(9)").text();
+                    final String tempVolatility2 =  tempVolatility.replace("%", "");
+                    final double Volatility = Double.parseDouble(tempVolatility2);
+                    
+                    stockVolatility.add(Volatility);
+                    
+                    
                 }
             }
         } catch (IOException ex) {
